@@ -73,7 +73,7 @@ export const getEncryptionPassword = (
 
 export const checkInputPassword = () => {
   //  if password is less than 3 - turn red
-  if ($("#encryptionInput input").val().length < 3) {
+  if (($("#encryptionInput input").val() as string).length < 3) {
     $("#encryptionInput").removeClass("nice-password");
   } else {
     $("#encryptionInput").addClass("nice-password");
