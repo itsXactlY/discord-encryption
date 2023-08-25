@@ -17691,30 +17691,56 @@ var cryptoJsExports = cryptoJs.exports;
 var crypto = /*@__PURE__*/getDefaultExportFromCjs(cryptoJsExports);
 
 const PREFIX = "#!aes/";
+const DIVIDER = "$";
 const encrypt = (msg, channelData) => {
     if (isMessageEncrypted(msg))
-        return msg;
-    const key = crypto.SHA512(channelData.password);
-    const iv = crypto.enc.Hex.parse("00000000000000000000000000000000");
-    return crypto.AES.encrypt(msg, key, {
+        return {
+            msg: msg,
+            iv: crypto.lib.WordArray.random(32).toString(),
+        };
+    const key = crypto.SHA256(channelData.password);
+    //const iv = crypto.enc.Hex.parse("00000000000000000000000000000000");
+    const iv = crypto.lib.WordArray.random(32);
+    console.log("Encrypting...");
+    console.log(key);
+    console.log(iv);
+    const encryptedMessage = crypto.AES.encrypt(msg, key, {
         iv: iv,
         padding: crypto.pad.Iso10126,
-    }).toString();
+    });
+    /*return crypto.AES.encrypt(msg, key, {
+      iv: iv,
+      padding: crypto.pad.Iso10126,
+    }).toString();*/
+    return {
+        iv: iv.toString(crypto.enc.Base64),
+        msg: encryptedMessage.toString(),
+    };
 };
 const decrypt = (msg, channelData) => {
+    console.log("Decrypting...");
+    console.log(msg, channelData);
+    // Check against prefix.length not against a fixed number because your prefix could change some day
     if (isMessageEncrypted(msg))
-        msg = msg.substring(6);
-    const key = crypto.SHA512(channelData.password);
-    const iv = crypto.enc.Hex.parse("00000000000000000000000000000000");
-    return crypto.AES.decrypt(msg, key, {
-        iv: iv,
+        msg = msg.substring(PREFIX.length);
+    const [iv, ciphertext] = msg.split(DIVIDER);
+    console.log(iv);
+    console.log(ciphertext);
+    if (!iv || !ciphertext)
+        throw "Error no iv or ciphertext found";
+    crypto.enc.Hex.parse(ciphertext);
+    const key = crypto.SHA256(channelData.password);
+    const ivWordArray = crypto.enc.Base64.parse(iv);
+    console.log("Key: " + key);
+    //const iv = crypto.enc.Hex.parse("00000000000000000000000000000000");
+    const result = crypto.AES.decrypt(ciphertext, key, {
+        iv: ivWordArray,
         padding: crypto.pad.Iso10126,
-    }).toString(crypto.enc.Utf8);
+    });
+    return result.toString(crypto.enc.Utf8);
 };
 const isMessageEncrypted = (msg) => {
-    if (msg.substring(0, 6) === PREFIX)
-        return true;
-    return false;
+    return msg.startsWith(PREFIX);
 };
 //--------------------------------------------------------------------
 //--------------------------------------------------------------------
@@ -17949,13 +17975,15 @@ const getUserData = () => {
     var _a, _b;
     const defaultUserData = {
         global: {
-            password: "",
-            state: false,
+            password: "123",
+            state: true,
         },
     };
     try {
         if (typeof ((_a = window === null || window === void 0 ? void 0 : window.BdApi) === null || _a === void 0 ? void 0 : _a.getData) !== "undefined") {
             const getUserData = (_b = window === null || window === void 0 ? void 0 : window.BdApi) === null || _b === void 0 ? void 0 : _b.getData(config.name, config.name);
+            if (!getUserData)
+                return defaultUserData;
             return JSON.parse(getUserData);
         }
         if (typeof localStorage !== "undefined") {
@@ -18417,8 +18445,9 @@ var index = !window.ZeresPluginLibrary
                         if (isEncryptionOn(this.userData, getChannelId()) &&
                             !isMessageEncrypted(message) &&
                             message.length > 0) {
+                            const encryptedMessage = encrypt(message, getOrCreateUserData(this.userData, getChannelId()));
                             const enc = PREFIX +
-                                encrypt(message, getOrCreateUserData(this.userData, getChannelId()));
+                                encryptedMessage.iv + DIVIDER + encryptedMessage.msg;
                             a[1].content = enc;
                         }
                     });

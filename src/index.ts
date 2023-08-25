@@ -17,6 +17,7 @@ import {
   removeElements,
   styles,
   UserData,
+  DIVIDER,
 } from "lib";
 
 import { encryptionButton, encryptionInput, updatePanel } from "lib/components";
@@ -92,12 +93,15 @@ export default !window.ZeresPluginLibrary
                   !isMessageEncrypted(message) &&
                   message.length > 0
                 ) {
+                  const encryptedMessage = encrypt(
+                    message,
+                    getOrCreateUserData(this.userData, getChannelId())
+                  );
                   const enc =
                     PREFIX +
-                    encrypt(
-                      message,
-                      getOrCreateUserData(this.userData, getChannelId())
-                    );
+                    encryptedMessage.iv +
+                    DIVIDER +
+                    encryptedMessage.ciphertext;
 
                   a[1].content = enc;
                 }
